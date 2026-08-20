@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "awshare"
+version = "0.1.0"
+description = "Publish an artifact and fetch it back verified — content-addressed bundles with verification on retrieval, atomic writes and containment of attacker-controlled member names."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+# No runtime dependencies. Everything here is stdlib (hashlib, tarfile, json),
+# and that is deliberate: this is the package a stranger runs BEFORE they trust
+# anything, so its own supply chain is the one place an extra dependency buys
+# the least and costs the most.
+dependencies = []
+
+[project.optional-dependencies]
+# Provenance. awshare answers "are these the published bytes"; awseal answers
+# "who published them". `publish --seal` and verifying a sealed bundle need it,
+# and both REFUSE rather than silently downgrading when it is absent.
+seal = ["awseal>=0.1.0"]
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+awshare = "awshare.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/Aitherium/awshare"
+Documentation = "https://github.com/Aitherium/awshare#readme"
+Repository = "https://github.com/Aitherium/awshare.git"
+Issues = "https://github.com/Aitherium/awshare/issues"
+
+[tool.setuptools]
+packages = ["awshare"]
+license-files = ["LICENSE"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"

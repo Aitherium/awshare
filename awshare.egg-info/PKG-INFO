@@ -1,0 +1,84 @@
+Metadata-Version: 2.4
+Name: awshare
+Version: 0.1.0
+Summary: Publish an artifact and fetch it back verified — content-addressed bundles with verification on retrieval, atomic writes and containment of attacker-controlled member names.
+License: Apache-2.0
+Project-URL: Homepage, https://github.com/Aitherium/awshare
+Project-URL: Documentation, https://github.com/Aitherium/awshare#readme
+Project-URL: Repository, https://github.com/Aitherium/awshare.git
+Project-URL: Issues, https://github.com/Aitherium/awshare/issues
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Provides-Extra: seal
+Requires-Dist: awseal>=0.1.0; extra == "seal"
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0; extra == "dev"
+Dynamic: license-file
+
+# awshare
+
+Publish an artifact, and fetch it back verified.
+
+`awshare` bundles a directory into a `tar.gz` plus a small JSON manifest naming
+its digest, its size and the files inside it. A consumer fetches the manifest
+first and can decide, before opening anything, whether the archive is the one
+that was published.
+
+```bash
+pip install awshare            # stdlib only
+pip install "awshare[seal]"    # adds provenance via awseal
+
+awshare publish ./my-adapter --out ./dist --seal
+awshare fetch ./dist/my-adapter.awshare.json --dest ./here --key <publisher-key>
+```
+
+## It pairs with awseal; it does not replace it
+
+```
+awshare — are these the bytes that were published?   (integrity)
+awseal  — who published them?                        (provenance)
+```
+
+A digest cannot answer the second, because whoever produced the bytes also
+produced the digest. `publish --seal` seals the directory *before* archiving, so
+the seal travels inside the artifact and one download answers both. Unsealed
+publishes say so on every run rather than letting a clean-looking pass be
+mistaken for provenance.
+
+## Exit codes are three answers, not two
+
+```
+0   verified
+1   checked, and it failed      (digest mismatch, wrong publisher, bad seal)
+2   could not check at all      (missing archive, unknown manifest version)
+```
+
+Collapsing 1 and 2 is how "I could not check this" becomes "it checked out".
+This package's own CLI got it wrong first: an artifact from the *wrong
+publisher* — definitively judged and definitively rejected — exited 2, the code
+reserved for not being able to tell.
+
+## What it refuses
+
+- **Path traversal**, in four flavours, because each defeats the previous
+  defence: `..` segments, absolute paths (`Path("/a") / "/etc/passwd"` is
+  `/etc/passwd`), Windows drive-relative names, and symlinks inside the
+  destination that only escape *after* `resolve()`.
+- **Non-regular archive members.** A symlink in a tarball passes every check
+  applied to its name and points anywhere once created.
+- **Unbounded expansion.** A small download that expands without limit fills the
+  disk long before anyone reads a log line.
+- **An empty tree.** It would fetch and verify perfectly while containing
+  nothing.
+- **Contents that disagree with the manifest**, even when the digest matches —
+  that is a manifest describing a different set of files to the one it names,
+  which is worse than corruption because every integrity check passes.
+
+Archives normalise uid, gid and mtime, so two builds of identical content
+produce identical bytes and a content-addressed store does not treat them as
+different artifacts.
+
+## Licence
+
+Apache-2.0.

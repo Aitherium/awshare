@@ -1,0 +1,14 @@
+LICENSE
+README.md
+pyproject.toml
+awshare/__init__.py
+awshare/bundle.py
+awshare/cli.py
+awshare/store.py
+awshare.egg-info/PKG-INFO
+awshare.egg-info/SOURCES.txt
+awshare.egg-info/dependency_links.txt
+awshare.egg-info/entry_points.txt
+awshare.egg-info/requires.txt
+awshare.egg-info/top_level.txt
+tests/test_awshare_contract.py

@@ -1,0 +1,6 @@
+
+[dev]
+pytest>=7.0
+
+[seal]
+awseal>=0.1.0
