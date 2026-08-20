@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "1",
+  "name": "awshare",
+  "description": "Publish an artifact and fetch it back verified.",
+  "url": "https://aitherium.github.io/awshare/",
+  "repository": "https://github.com/Aitherium/awshare",
+  "kind": "tool",
+  "status": "public",
+  "adopt": "Publish one file and fetch it on another machine with verification on.",
+  "pairs_with": [
+    "awseal",
+    "awrecover"
+  ],
+  "includes": []
+}
