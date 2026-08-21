@@ -11,5 +11,15 @@
     "awseal",
     "awrecover"
   ],
-  "includes": []
+  "includes": [],
+  "metrics": {
+    "files": {
+      "value": 12,
+      "as_of": "2026-08-21T02:00:52-07:00"
+    },
+    "tests": {
+      "value": 2,
+      "as_of": "2026-08-21T02:00:52-07:00"
+    }
+  }
 }
