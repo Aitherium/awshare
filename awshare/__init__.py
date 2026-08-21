@@ -38,6 +38,24 @@ from .bundle import (
     load_manifest,
     publish,
 )
+from .chunk import (
+    CHUNK_MANIFEST_SUFFIX,
+    CHUNK_MANIFEST_VERSION,
+    DEFAULT_PART_SIZE,
+    ChunkManifest,
+    Part,
+    iter_stitched,
+    missing_parts,
+    plan_parts,
+    resolve_range,
+    split,
+    stitch,
+)
+
+# `load_manifest` already means the BUNDLE manifest here. Chunking has its own,
+# and silently shadowing one with the other would hand a caller the wrong parser
+# for their document -- so the chunk one is exported under a name that says which.
+from .chunk import load_manifest as load_chunk_manifest
 from .store import (
     ShareError,
     already_have,
@@ -51,6 +69,18 @@ from .store import (
 __version__ = "0.1.0"
 
 __all__ = [
+    "CHUNK_MANIFEST_SUFFIX",
+    "CHUNK_MANIFEST_VERSION",
+    "ChunkManifest",
+    "DEFAULT_PART_SIZE",
+    "Part",
+    "iter_stitched",
+    "load_chunk_manifest",
+    "missing_parts",
+    "plan_parts",
+    "resolve_range",
+    "split",
+    "stitch",
     "ARCHIVE_SUFFIX",
     "MANIFEST_SUFFIX",
     "MANIFEST_VERSION",
