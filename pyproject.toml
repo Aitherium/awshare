@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "awshare"
-version = "0.1.0"
+version = "0.1.1"
 description = "Publish an artifact and fetch it back verified — content-addressed bundles with verification on retrieval, atomic writes and containment of attacker-controlled member names."
 readme = "README.md"
 requires-python = ">=3.10"
