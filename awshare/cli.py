@@ -76,7 +76,9 @@ def _cmd_snapshot(a) -> int:
     m = _dedupe.snapshot_tree(Path(a.directory), store, a.name, previous=prev)
     print(f"{a.name}: {len(m['files'])} files, {m['total_bytes'] / 1024 ** 2:.1f} MiB; "
           f"new {m['new_objects']} object(s), {m['new_bytes'] / 1024 ** 2:.1f} MiB")
-    return 0
+    for u in m.get("unreadable") or []:
+        print(f"  NOT IN SNAPSHOT (unreadable): {u}", file=sys.stderr)
+    return 1 if m.get("unreadable") else 0
 
 
 def _cmd_restore(a) -> int:

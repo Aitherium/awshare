@@ -130,3 +130,34 @@ def test_gc_refuses_when_a_manifest_is_unreadable(tmp_path):
     (store / "bad.awtree.json").write_text("{not json", encoding="utf-8")
     with pytest.raises(ShareError):
         dd.gc(store)
+
+
+def _unreadable(monkeypatch, bad_name):
+    """Make one file raise like WinError 1920 (a reparse point the system cannot open)."""
+    real_stat = Path.stat
+    real_os_stat = os.stat
+
+    def fake_stat(self, *a, **k):
+        if self.name == bad_name:
+            raise OSError(1920, "The file cannot be accessed by the system")
+        return real_stat(self, *a, **k)
+
+    def fake_os_stat(p, *a, **k):
+        if os.path.basename(os.fspath(p)) == bad_name:
+            raise OSError(1920, "The file cannot be accessed by the system")
+        return real_os_stat(p, *a, **k)
+    monkeypatch.setattr(Path, "stat", fake_stat)
+    monkeypatch.setattr(os, "stat", fake_os_stat)
+
+
+def test_an_unreadable_file_is_counted_not_a_crash(tmp_path, monkeypatch):
+    """2026-10-03: one node_modules reparse point killed a dry run over a whole drive."""
+    a = _tree(tmp_path / "a", {"f": b"same" * 100, "bad": b"x"})
+    b = _tree(tmp_path / "b", {"f": b"same" * 100})
+    _unreadable(monkeypatch, "bad")
+    r = dd.dedupe_tree([a, b], dry_run=True)
+    assert r["linked"] == 1 and any("bad" in e for e in r["errors"])
+    lt = dd.link_tree(a, tmp_path / "copy")
+    assert lt["files"] == 1 and len(lt["unreadable"]) == 1
+    m = dd.snapshot_tree(a, tmp_path / "store", "s1")
+    assert "f" in m["files"] and len(m["unreadable"]) == 1

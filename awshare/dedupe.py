@@ -82,18 +82,23 @@ def link_tree(src: Path, dest: Path, link_dest: Optional[Path] = None) -> Dict[s
     if not src.is_dir():
         raise ShareError(f"link_tree source is not a directory: {src}")
     prev_root = Path(link_dest) if link_dest and Path(link_dest).is_dir() else None
-    out = {"files": 0, "bytes": 0, "linked": 0, "linked_bytes": 0, "link_failures": 0}
+    out: Dict[str, object] = {"files": 0, "bytes": 0, "linked": 0, "linked_bytes": 0,
+                              "link_failures": 0, "unreadable": []}
     for root, dirs, names in os.walk(src, followlinks=False):
         dirs.sort()
         rel_root = os.path.relpath(root, src)
         for name in sorted(names):
             s = os.path.join(root, name)
-            if os.path.islink(s) or not os.path.isfile(s):
+            try:
+                if os.path.islink(s) or not os.path.isfile(s):
+                    continue
+                st = os.stat(s)
+            except OSError as exc:  # recorded: a copy that silently drops a file is not whole
+                out["unreadable"].append(f"{s}: {exc}")
                 continue
             rel = os.path.normpath(os.path.join(rel_root, name))
             d = dest / rel
             d.parent.mkdir(parents=True, exist_ok=True)
-            st = os.stat(s)
             p = prev_root / rel if prev_root else None
             if p is not None and p.is_file() and unchanged_since(st, p.stat()):
                 try:
@@ -127,6 +132,7 @@ def dedupe_tree(roots: Iterable[Path], *, dry_run: bool = False,
     """
     by_size: Dict[int, List[Path]] = {}
     files = 0
+    errors: List[str] = []
     for r in roots:
         r = Path(r)
         if not r.is_dir():
@@ -135,13 +141,17 @@ def dedupe_tree(roots: Iterable[Path], *, dry_run: bool = False,
             dirs.sort()
             for name in sorted(names):
                 p = Path(root) / name
-                if p.is_symlink() or not p.is_file():
+                try:
+                    if p.is_symlink() or not p.is_file():
+                        continue
+                    size = p.stat().st_size
+                except OSError as exc:  # e.g. WinError 1920 on a reparse point: skip, count
+                    errors.append(f"{p}: unreadable ({exc})")
                     continue
                 files += 1
-                size = p.stat().st_size
                 if size >= min_size:
                     by_size.setdefault(size, []).append(p)
-    linked, saved, errors = 0, 0, []
+    linked, saved = 0, 0
     for size, paths in sorted(by_size.items()):
         if len(paths) < 2:
             continue
@@ -251,14 +261,19 @@ def snapshot_tree(src: Path, store: Path, name: str, *,
     prev_files = dict((previous or {}).get("files") or {})
     files: Dict[str, Dict[str, object]] = {}
     new_objects = new_bytes = total = 0
+    unreadable: List[str] = []
     for root, dirs, names in os.walk(src, followlinks=False):
         dirs.sort()
         for fname in sorted(names):
             p = Path(root) / fname
-            if p.is_symlink() or not p.is_file():
+            try:
+                if p.is_symlink() or not p.is_file():
+                    continue
+                st = p.stat()
+            except OSError as exc:  # recorded in the manifest, never silently dropped
+                unreadable.append(f"{p.relative_to(src).as_posix()}: {exc}")
                 continue
             rel = p.relative_to(src).as_posix()
-            st = p.stat()
             old = prev_files.get(rel) or {}
             digest = old.get("sha256") if (old.get("size") == st.st_size
                                            and old.get("mtime") == st.st_mtime) else None
@@ -274,6 +289,7 @@ def snapshot_tree(src: Path, store: Path, name: str, *,
                 new_bytes += st.st_size
     manifest = {"version": TREE_MANIFEST_VERSION, "name": name, "files": files,
                 "total_bytes": total, "new_objects": new_objects, "new_bytes": new_bytes,
+                "unreadable": unreadable,
                 "meta": dict(meta or {})}
     atomic_write(Path(store) / f"{name}{TREE_MANIFEST_SUFFIX}",
                  json.dumps(manifest, indent=1, sort_keys=True).encode("utf-8"))
