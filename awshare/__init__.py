@@ -76,7 +76,7 @@ from .dedupe import (
     snapshot_tree,
 )
 
-__version__ = "0.2.1"
+__version__ = "0.2.2"
 
 __all__ = [
     "CHUNK_MANIFEST_SUFFIX",
