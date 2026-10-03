@@ -66,7 +66,17 @@ from .store import (
     safe_member_path,
 )
 
-__version__ = "0.1.1"
+from .dedupe import (
+    TREE_MANIFEST_SUFFIX,
+    ObjectStore,
+    dedupe_tree,
+    link_tree,
+    load_tree_manifest,
+    restore_tree,
+    snapshot_tree,
+)
+
+__version__ = "0.2.0"
 
 __all__ = [
     "CHUNK_MANIFEST_SUFFIX",
@@ -95,4 +105,11 @@ __all__ = [
     "load_manifest",
     "publish",
     "safe_member_path",
+    "ObjectStore",
+    "TREE_MANIFEST_SUFFIX",
+    "dedupe_tree",
+    "link_tree",
+    "load_tree_manifest",
+    "restore_tree",
+    "snapshot_tree",
 ]

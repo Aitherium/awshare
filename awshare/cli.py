@@ -18,6 +18,7 @@ import sys
 from pathlib import Path
 
 from . import bundle as _bundle
+from . import dedupe as _dedupe
 from .store import ShareError, VerificationFailedError, safe_member_path
 
 
@@ -53,6 +54,36 @@ def _cmd_fetch(a) -> int:
 def _cmd_inspect(a) -> int:
     m = _bundle.load_manifest(Path(a.manifest))
     print(json.dumps(m.to_dict(), indent=2, sort_keys=True))
+    return 0
+
+
+def _cmd_dedupe(a) -> int:
+    r = _dedupe.dedupe_tree([Path(x) for x in a.dirs], dry_run=a.dry_run,
+                            min_size=a.min_size)
+    verb = "would link" if a.dry_run else "linked"
+    print(f"{r['files']} files scanned, {verb} {r['linked']}, "
+          f"saved {r['saved_bytes'] / 1024 ** 3:.2f} GiB")
+    for e in r["errors"]:
+        print(f"  error: {e}", file=sys.stderr)
+    return 1 if r["errors"] else 0
+
+
+def _cmd_snapshot(a) -> int:
+    store = Path(a.store)
+    prev = None
+    if a.previous:
+        prev = _dedupe.load_tree_manifest(store / f"{a.previous}{_dedupe.TREE_MANIFEST_SUFFIX}")
+    m = _dedupe.snapshot_tree(Path(a.directory), store, a.name, previous=prev)
+    print(f"{a.name}: {len(m['files'])} files, {m['total_bytes'] / 1024 ** 2:.1f} MiB; "
+          f"new {m['new_objects']} object(s), {m['new_bytes'] / 1024 ** 2:.1f} MiB")
+    return 0
+
+
+def _cmd_restore(a) -> int:
+    store = Path(a.store)
+    m = _dedupe.load_tree_manifest(store / f"{a.name}{_dedupe.TREE_MANIFEST_SUFFIX}")
+    r = _dedupe.restore_tree(m, store, Path(a.dest))
+    print(f"restored {r['files']} files to {r['dest']}, every digest verified")
     return 0
 
 
@@ -174,6 +205,24 @@ def self_test() -> int:
         except ShareError:
             chk("refuses an unknown manifest version", "raise", "raise")
 
+        # dedupe: unchanged bytes stored once, every copy still complete
+        t = d / "tree"
+        (t / "old").mkdir(parents=True)
+        (t / "old" / "day1").write_bytes(b"x" * 4096)
+        (t / "today").write_bytes(b"y")
+        st = d / "objstore"
+        m1 = _dedupe.snapshot_tree(t, st, "s1")
+        (t / "today").write_bytes(b"yy")
+        m2 = _dedupe.snapshot_tree(t, st, "s2", previous=m1)
+        chk("a second snapshot stores only the changed file", m2["new_objects"], 1)
+        r = _dedupe.restore_tree(m1, st, d / "restored")
+        chk("the first snapshot still restores whole", r["files"], 2)
+        a1, a2 = d / "dA", d / "dB"
+        for x in (a1, a2):
+            x.mkdir()
+            (x / "f").write_bytes(b"same" * 64)
+        chk("dedupe links identical files", _dedupe.dedupe_tree([a1, a2])["linked"], 1)
+
     print("\nself-test:", "PASS" if ok else "FAIL")
     return 0 if ok else 1
 
@@ -215,6 +264,25 @@ def main(argv=None) -> int:
     i = sub.add_parser("inspect")
     i.add_argument("manifest")
     i.set_defaults(fn=_cmd_inspect)
+
+    dd = sub.add_parser("dedupe", help="hard-link identical files across directories")
+    dd.add_argument("dirs", nargs="+")
+    dd.add_argument("--dry-run", action="store_true")
+    dd.add_argument("--min-size", type=int, default=1024 * 1024)
+    dd.set_defaults(fn=_cmd_dedupe)
+
+    sn = sub.add_parser("snapshot", help="content-addressed snapshot of a directory")
+    sn.add_argument("directory")
+    sn.add_argument("--store", required=True)
+    sn.add_argument("--name", required=True)
+    sn.add_argument("--previous", help="earlier snapshot name (skip re-hashing unchanged files)")
+    sn.set_defaults(fn=_cmd_snapshot)
+
+    rs = sub.add_parser("restore", help="restore a snapshot, every digest verified")
+    rs.add_argument("name")
+    rs.add_argument("--store", required=True)
+    rs.add_argument("--dest", required=True)
+    rs.set_defaults(fn=_cmd_restore)
 
     a = ap.parse_args(argv)
     if a.self_test:
