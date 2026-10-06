@@ -1,0 +1,36 @@
+# awshare
+
+> Publish an artifact and fetch it back verified.
+
+Publishing is easy; proving the bytes that arrived are the bytes you sent is the part everyone skips.
+
+## Install
+
+```
+pip install awshare
+```
+
+## In Claude Code
+
+- skill: `/awshare`
+
+## Use it in 30 seconds
+
+Publish one file and fetch it on another machine with verification on.
+
+## Composes with
+
+- [awseal](https://aitherium.github.io/awseal/) — Sign an artifact so a stranger can verify it.
+- [awrecover](https://aitherium.github.io/awrecover/) — Labelled snapshots with an all-or-nothing restore.
+- [awclassify](https://aitherium.github.io/awclassify/) — Classify any document -- what it is, who may read it, who it is for, what it is about.
+- [awrtifact](https://aitherium.github.io/awrtifact/) — Deliberately chunk artifacts into GitHub release assets — the productized aitherkvcache mirror lane.
+
+## Where it lives
+
+- Repo: https://github.com/Aitherium/awshare
+- Docs: https://aitherium.github.io/awshare/
+- Manifest (keys + the one-line adoption story): https://aitherium.github.io/awshare/aither-manifest.json
+
+This repository is mirrored from the AitherOS monorepo by `.github/workflows/sync-awshare.yml`; hand edits made here are overwritten on the next sync — change the source instead.
+
+Everything Aitherium, in one file for agents: https://aitherium.com/llms.txt
