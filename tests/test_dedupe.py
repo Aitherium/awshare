@@ -164,3 +164,18 @@ def test_an_unreadable_file_is_counted_not_a_crash(tmp_path, monkeypatch):
     assert lt["files"] == 1 and "bad" not in os.listdir(tmp_path / "copy")
     m = dd.snapshot_tree(a, tmp_path / "store", "s1")
     assert set(m["files"]) == {"f"}
+
+
+def test_restore_tree_applies_permission_bits_only(tmp_path, monkeypatch):
+    """A manifest is data: setuid/setgid/sticky in an entry's mode must never reach
+    chmod, whoever wrote the manifest."""
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "f").write_bytes(b"f")
+    m = dd.snapshot_tree(src, tmp_path / "store", "s1")
+    m["files"]["f"]["mode"] = 0o4777
+    applied = []
+    real = os.chmod
+    monkeypatch.setattr(dd.os, "chmod", lambda p, mode: (applied.append(mode), real(p, mode)))
+    dd.restore_tree(m, tmp_path / "store", tmp_path / "dest")
+    assert applied == [0o777]

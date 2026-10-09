@@ -244,20 +244,25 @@ class ObjectStore:
 
 def snapshot_tree(src: Path, store: Path, name: str, *,
                   previous: Optional[Dict[str, object]] = None,
-                  meta: Optional[Dict[str, object]] = None) -> Dict[str, object]:
+                  meta: Optional[Dict[str, object]] = None,
+                  object_store: Optional[object] = None) -> Dict[str, object]:
     """Snapshot `src` into the object store at `store`; write `<name>.awtree.json`.
 
     A file whose size and mtime match its entry in `previous` reuses that digest
     without re-reading it (the rsync quick check); every other file is hashed. Only
     digests the store does not have yet take space. Returns the manifest, with
     "new_objects" and "new_bytes" saying what this snapshot actually cost.
+
+    `object_store` puts the objects somewhere other than `<store>/objects` -- any
+    object with the `has`/`put`/`materialize` contract, e.g. a `RemoteObjectStore`.
+    The manifest is still written under `store`.
     """
     src = Path(src)
     if not src.is_dir():
         raise ShareError(f"snapshot source is not a directory: {src}")
     if not name or "/" in name or "\\" in name or name.startswith("."):
         raise ShareError(f"refusing snapshot name {name!r}: it becomes a filename")
-    os_ = ObjectStore(store)
+    os_ = object_store if object_store is not None else ObjectStore(store)
     prev_files = dict((previous or {}).get("files") or {})
     files: Dict[str, Dict[str, object]] = {}
     new_objects = new_bytes = total = 0
@@ -308,13 +313,15 @@ def load_tree_manifest(path: Path) -> Dict[str, object]:
 
 
 def restore_tree(manifest: Dict[str, object], store: Path, dest: Path, *,
-                 link: bool = False) -> Dict[str, object]:
+                 link: bool = False,
+                 object_store: Optional[object] = None) -> Dict[str, object]:
     """Materialise every file of `manifest` under `dest`, each digest verified.
 
     Raises on the first missing or corrupt object: a restore that lands most files
-    is not a restore. Names are contained with `safe_member_path`.
+    is not a restore. Names are contained with `safe_member_path`. `object_store`
+    reads the objects from where `snapshot_tree` was told to put them.
     """
-    os_ = ObjectStore(store)
+    os_ = object_store if object_store is not None else ObjectStore(store)
     dest = Path(dest)
     dest.mkdir(parents=True, exist_ok=True)
     n = modes_kept = 0
@@ -322,7 +329,9 @@ def restore_tree(manifest: Dict[str, object], store: Path, dest: Path, *,
         target = safe_member_path(dest, rel)
         os_.materialize(str(ent["sha256"]), target, link=link)
         try:
-            os.chmod(target, int(ent.get("mode") or 0o644))
+            # Permission bits only: a manifest is data, and setuid/setgid/sticky
+            # from data is a privilege a restore must never grant.
+            os.chmod(target, int(ent.get("mode") or 0o644) & 0o777)
         except OSError:  # a filesystem without POSIX modes keeps its own
             modes_kept += 1
         n += 1

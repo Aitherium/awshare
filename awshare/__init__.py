@@ -75,8 +75,9 @@ from .dedupe import (
     restore_tree,
     snapshot_tree,
 )
+from .remote_store import RemoteObjectStore
 
-__version__ = "0.2.2"
+__version__ = "0.2.3"
 
 __all__ = [
     "CHUNK_MANIFEST_SUFFIX",
@@ -106,6 +107,7 @@ __all__ = [
     "publish",
     "safe_member_path",
     "ObjectStore",
+    "RemoteObjectStore",
     "TREE_MANIFEST_SUFFIX",
     "dedupe_tree",
     "link_tree",
