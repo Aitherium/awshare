@@ -10,10 +10,6 @@ Publishing is easy; proving the bytes that arrived are the bytes you sent is the
 pip install awshare
 ```
 
-## In Claude Code
-
-- skill: `/awshare`
-
 ## Use it in 30 seconds
 
 Publish one file and fetch it on another machine with verification on.
